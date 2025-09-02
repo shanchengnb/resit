@@ -19,7 +19,7 @@ This will generate:
 2.csl: ChenShandata/harvard-cite-them-right.csl
 
 
-Quarto will automatically create a folder named ChenShandata in your project directory (if it does not already exist) and save the necessary files there.
+Quarto will automatically create a folder named ChenShandata in your project directory (if it does not already exist) and download the necessary files there.
 
 This ensures that your bibliography (bio.bib) and CSL style file (harvard-cite-them-right.csl) are correctly located for PDF rendering.
 

@@ -12,7 +12,7 @@ This will generate:
 
 ## Note:
 
-When you specify in your .qmd file:
+
 
 1.bibliography: ChenShandata/bio.bib
 

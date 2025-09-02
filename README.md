@@ -14,8 +14,9 @@ This will generate:
 
 When you specify in your .qmd file:
 
-bibliography: ChenShandata/bio.bib
-csl: ChenShandata/harvard-cite-them-right.csl
+1.bibliography: ChenShandata/bio.bib
+
+2.csl: ChenShandata/harvard-cite-them-right.csl
 
 
 Quarto will automatically create a folder named ChenShandata in your project directory (if it does not already exist) and save the necessary files there.
@@ -32,13 +33,13 @@ This code checks and ensures that all required Python libraries for the project 
 
 This code automatically creates a project-specific folder (ChenShandata) on your computer to store required files. It downloads key data and resources from GitHub if they are missing:
 
-final_data.csv (main dataset)
+1.final_data.csv (main dataset)
 
-bio.bib (bibliography)
+2.bio.bib (bibliography)
 
-harvard-cite-them-right.csl (citation style)
+3.harvard-cite-them-right.csl (citation style)
 
-neighbourhoods.geojson (spatial boundaries)
+4.neighbourhoods.geojson (spatial boundaries)
 
 After downloading, it loads the CSV into a pandas DataFrame and stops execution if the data is missing or empty. This ensures reproducibility and that all required files are locally available without manual intervention.
 

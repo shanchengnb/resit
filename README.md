@@ -67,3 +67,84 @@ This is a warning, not an error.
 The PDF is still generated successfully.
 
 To avoid the warning, run Quarto as a normal user instead of with administrator rights.
+
+## PDF rendered successfully
+C:\Users\Administrator>quarto render "24034306ChengShan.qmd" --to pdf
+
+Starting python3 kernel...Done
+
+Executing '24034306ChengShan.quarto_ipynb'
+  Cell 1/8: ''...Done
+  Cell 2/8: ''...Done
+  Cell 3/8: ''...Done
+  Cell 4/8: ''...Done
+  Cell 5/8: ''...Done
+  Cell 6/8: ''...Done
+  Cell 7/8: ''...Done
+  Cell 8/8: ''...Done
+
+pandoc
+  to: latex
+  output-file: 24034306ChengShan.tex
+  standalone: true
+  pdf-engine: xelatex
+  variables:
+    graphics: true
+    tables: true
+  default-image-extension: pdf
+  toc: false
+  number-sections: false
+
+metadata
+  documentclass: scrartcl
+  classoption:
+    - DIV=11
+    - numbers=noendperiod
+  papersize: a4
+  header-includes:
+    - \KOMAoption{captions}{tableheading}
+  block-headings: true
+  bibliography:
+    - ChenShandata/bio.bib
+  csl: ChenShandata/harvard-cite-them-right.csl
+  title: Professionalisation of Airbnb:regulatory challenge or growth opportunity?
+  jupyter:
+    jupytext:
+      text_representation:
+        extension: .qmd
+        format_name: quarto
+        format_version: '1.0'
+        jupytext_version: 1.15.2
+    kernelspec:
+      display_name: Python 3 (ipykernel)
+      language: python
+      name: python3
+  mainfont: Times New Roman
+  sansfont: Arial
+  monofont: Courier New
+  geometry:
+    - top=25mm
+    - left=40mm
+    - right=30mm
+    - bottom=25mm
+    - heightrounded
+  colorlinks: true
+
+
+Rendering PDF
+running xelatex - 1
+  xelatex: security risk: running with elevated privileges
+  This is XeTeX, Version 3.141592653-2.6-0.999997 (MiKTeX 25.3) (preloaded format=xelatex.fmt)
+   restricted \write18 enabled.
+  entering extended mode
+  miktex-dvipdfmx: security risk: running with elevated privileges
+
+running xelatex - 2
+  xelatex: security risk: running with elevated privileges
+  This is XeTeX, Version 3.141592653-2.6-0.999997 (MiKTeX 25.3) (preloaded format=xelatex.fmt)
+   restricted \write18 enabled.
+  entering extended mode
+  miktex-dvipdfmx: security risk: running with elevated privileges
+
+
+Output created: 24034306ChengShan.pdf

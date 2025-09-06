@@ -9,6 +9,40 @@ This will generate:
 
 24034306ChengShan.pdf (formatted coursework submission)
 
+## ⚠️ Important Notice: CSV File Encoding
+
+The final_data.csv file in this project is already UTF-8 encoded. You can use it directly after downloading.
+
+Do not re-save the CSV file in Excel or WPS, because the default save may convert it to GBK/ANSI encoding, which will cause Python to raise an error:
+
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0xa1 in position 147
+
+✅ Solution: Safely Load the CSV
+
+Use the following Python code to automatically handle both UTF-8 and GBK encoded CSV files:
+
+import pandas as pd
+from pathlib import Path
+
+csv_path = Path("ChenShandata/final_data.csv")
+
+try:
+    # Try reading as UTF-8
+    df = pd.read_csv(csv_path, encoding="utf-8")
+    print("✅ CSV loaded successfully with UTF-8 encoding")
+except UnicodeDecodeError:
+    # Fallback to GBK if UTF-8 fails
+    df = pd.read_csv(csv_path, encoding="gbk")
+    print("✅ CSV loaded successfully with GBK encoding")
+
+
+This way, even if the CSV file is accidentally re-saved as GBK, it will still load correctly without errors.
+
+💡 Best Practices
+
+Keep the original downloaded CSV file unchanged — do not modify or re-save it.
+
+If you must edit the CSV in Excel, choose CSV UTF-8 (Comma delimited) when saving.
 
 ## Note:
 

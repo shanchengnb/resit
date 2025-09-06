@@ -22,17 +22,26 @@ UnicodeDecodeError: 'utf-8' codec can't decode byte 0xa1 in position 147
 Use the following Python code to automatically handle both UTF-8 and GBK encoded CSV files:
 
 import pandas as pd
+
 from pathlib import Path
 
 csv_path = Path("ChenShandata/final_data.csv")
 
 try:
+
     # Try reading as UTF-8
+    
     df = pd.read_csv(csv_path, encoding="utf-8")
+    
     print("✅ CSV loaded successfully with UTF-8 encoding")
+
+    
 except UnicodeDecodeError:
+
     # Fallback to GBK if UTF-8 fails
+    
     df = pd.read_csv(csv_path, encoding="gbk")
+    
     print("✅ CSV loaded successfully with GBK encoding")
 
 

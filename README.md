@@ -28,14 +28,16 @@ from pathlib import Path
 csv_path = Path("ChenShandata/final_data.csv")
 
 try:
-    # Try reading as UTF-8
+
     df = pd.read_csv(csv_path, encoding="utf-8")
+    
     print("✅ CSV loaded successfully with UTF-8 encoding")
 
     
 except UnicodeDecodeError:
-    # Fallback to GBK if UTF-8 fails    
+    
     df = pd.read_csv(csv_path, encoding="gbk")
+    
     print("✅ CSV loaded successfully with GBK encoding")
 
 

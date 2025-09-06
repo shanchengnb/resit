@@ -42,7 +42,6 @@ This way, even if the CSV file is accidentally re-saved as GBK, it will still lo
 
 Keep the original downloaded CSV file unchanged — do not modify or re-save it.
 
-If you must edit the CSV in Excel, choose CSV UTF-8 (Comma delimited) when saving.
 
 ## Note:
 

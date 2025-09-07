@@ -9,6 +9,22 @@ This will generate:
 
 24034306ChengShan.pdf (formatted coursework submission)
 
+## Font Information
+
+This project was rendered in a local environment (without Docker). For aesthetic and cross-platform compatibility, the following fonts are used:
+
+```yaml
+mainfont: "Times New Roman"
+sansfont: "Arial"
+monofont: "Courier New"
+Times New Roman: Used for body text; classic, clear, and widely supported.
+
+Arial: Used for sans-serif text, such as headings or chart labels.
+
+Courier New: Used for monospaced text, such as code blocks or terminal outputs.
+
+If these fonts are not installed on the teacher’s computer, they can be downloaded and installed manually (from system defaults or official sources like Microsoft or Google) to ensure consistent PDF formatting.
+
 ## ⚠️ Important Notice: CSV File Encoding
 
 The final_data.csv file in this project is already UTF-8 encoded. You can use it directly after downloading.

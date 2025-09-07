@@ -13,7 +13,7 @@ This will generate:
 
 This project was rendered in a local environment (without Docker). For aesthetic and cross-platform compatibility, the following fonts are used:
 
-```yaml
+
 mainfont: "Times New Roman"
 sansfont: "Arial"
 monofont: "Courier New"

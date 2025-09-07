@@ -15,8 +15,11 @@ This project was rendered in a local environment (without Docker). For aesthetic
 
 
 mainfont: "Times New Roman"
+
 sansfont: "Arial"
+
 monofont: "Courier New"
+
 Times New Roman: Used for body text; classic, clear, and widely supported.
 
 Arial: Used for sans-serif text, such as headings or chart labels.

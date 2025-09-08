@@ -9,6 +9,58 @@ This will generate:
 
 24034306ChengShan.pdf (formatted coursework submission)
 
+## Python Library Installation Notes
+
+This project uses a requirements.txt file to ensure all required Python packages are available for reproducibility.
+
+Installation Process in QMD
+
+Ensure requirements.txt exists
+
+The code downloads it automatically from GitHub if missing.
+
+If the download fails, place it manually in the project root.
+
+Check and install missing libraries
+
+The script imports each package from requirements.txt and detects missing ones.
+
+Missing packages are installed using:
+
+python -m pip install --user -r requirements.txt
+
+
+The --user flag installs packages in your user site-packages to avoid needing admin/root privileges.
+
+Python executable check
+
+After installation, sys.executable confirms the Python environment being used.
+
+Important Notes
+
+Local environments (Windows/macOS, Anaconda/VS Code)
+
+Use --user to avoid permission issues.
+
+Safe and recommended when you cannot install packages system-wide.
+
+Docker / Instructor evaluation environment
+
+Typically the Python user in Docker is root, so --user is not needed.
+
+You can install packages globally using:
+
+python -m pip install -r requirements.txt
+
+
+In Docker, if a package already exists, it will not be reinstalled unless explicitly upgraded.
+
+Version discrepancies
+
+The current script installs missing packages only; it does not upgrade packages if a different version is present.
+
+For fully reproducible results, ensure the Docker image contains all required packages at the correct versions.
+
 ## Font Information
 
 This project was rendered in a local environment (without Docker). For aesthetic and cross-platform compatibility, the following fonts are used:

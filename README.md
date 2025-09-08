@@ -4,7 +4,17 @@
 If library installation fails: The final version of my QMD file is available on GitHub: 24034306ChengShan.qmd
 . You can use this file to run the analysis directly without needing to re-install packages manually.
 
+The QMD file includes a Python setup block that automatically installs any missing packages globally:
 
+Check for requirements.txt — if missing, it downloads it from GitHub.
+
+Install missing libraries globally — all required packages are installed system-wide using pip install -r requirements.txt, ensuring that every user on the system can access them without separate user-level installs.
+
+Show current Python executable — confirms which Python environment is being used.
+
+Key modules: importlib (check installed packages), subprocess (run pip globally), sys, Pathlib, requests.
+
+This guarantees that the QMD can be executed directly without manual package management and avoids issues caused by missing dependencies.
 
 
 ## Navigate to the folder where the .qmd file is located.

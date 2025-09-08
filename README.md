@@ -2,7 +2,10 @@
 ## ⚠️ Critical Note: QMD File Available for Direct Execution
 Run the first code block to install the required libraries. If it doesn’t work, you can directly run the following command in Jupyter Notebook or IPython to install all necessary packages:
 
+```{python}
+#| echo: False
 !pip install pandas==2.2.3 numpy==1.26.4 matplotlib==3.9.2 seaborn==0.13.2 wordcloud==1.9.4 geopandas==1.0.1 scikit-learn==1.6.1 requests==2.32.3 tqdm==4.67.1
+```
 
 If library installation fails: The final version of my QMD file is available on GitHub: 24034306ChengShan.qmd
 . You can use this file to run the analysis directly without needing to re-install packages manually.
@@ -18,7 +21,12 @@ Show current Python executable — confirms which Python environment is being us
 Key modules: importlib (check installed packages), subprocess (run pip globally), sys, Pathlib, requests.
 
 This guarantees that the QMD can be executed directly without manual package management and avoids issues caused by missing dependencies.
-## 0. Library Installation and Data Import
+## 0. Library Installation 
+```{python}
+#| echo: False
+!pip install pandas==2.2.3 numpy==1.26.4 matplotlib==3.9.2 seaborn==0.13.2 wordcloud==1.9.4 geopandas==1.0.1 scikit-learn==1.6.1 requests==2.32.3 tqdm==4.67.1
+```
+
 ```{python}
 #| echo: False
 import importlib

@@ -15,6 +15,75 @@ Show current Python executable — confirms which Python environment is being us
 Key modules: importlib (check installed packages), subprocess (run pip globally), sys, Pathlib, requests.
 
 This guarantees that the QMD can be executed directly without manual package management and avoids issues caused by missing dependencies.
+## 0. Library Installation and Data Import
+```{python}
+#| echo: False
+import importlib
+import subprocess
+import sys
+from pathlib import Path
+import requests
+
+# ----------------------------
+# Step 1: Ensure requirements.txt exists
+# ----------------------------
+req_file = Path("requirements.txt")
+if not req_file.exists():
+    url = "https://raw.githubusercontent.com/shanchengnb/resit/main/requirements.txt"
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        req_file.write_text(response.text, encoding="utf-8")
+        print(f"✔ requirements.txt downloaded from GitHub to {req_file.resolve()}")
+    except Exception as e:
+        print(f"⚠️ Failed to download requirements.txt: {e}")
+        print("👉 Please manually download it from https://github.com/shanchengnb/resit and place it in the project root.")
+        raise SystemExit("❌ Cannot proceed without requirements.txt")
+
+# ----------------------------
+# Step 2: Install missing libraries
+# ----------------------------
+def check_and_install_requirements(req_path):
+    """Check and install any missing packages listed in requirements.txt."""
+    if not req_path.exists():
+        raise FileNotFoundError(f"{req_path} does not exist.")
+
+    # Parse required packages
+    with req_path.open("r", encoding="utf-8") as f:
+        lines = f.readlines()
+    req_packages = [line.strip().split("==")[0] for line in lines if line.strip() and not line.startswith("#")]
+
+    # Check missing packages
+    missing = []
+    for pkg in req_packages:
+        try:
+            importlib.import_module(pkg)
+        except ImportError:
+            missing.append(pkg)
+
+    if missing:
+        print("⚠️ Installing missing packages globally:")
+        for pkg in missing:
+            print("   -", pkg)
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", str(req_path)])
+            print("\n✅ Missing packages installed successfully.")
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Failed to install packages: {e}")
+            raise
+    else:
+        print("✅ All required packages are already installed.")
+
+# Run the check
+check_and_install_requirements(req_file)
+
+# ----------------------------
+# Step 3: Show current Python executable
+# ----------------------------
+print(f"📝 Current Python executable: {sys.executable}")
+
+
+```
 
 
 ## Navigate to the folder where the .qmd file is located.

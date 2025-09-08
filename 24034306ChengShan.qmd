@@ -1,0 +1,887 @@
+---
+bibliography: ChenShandata/bio.bib
+csl: ChenShandata/harvard-cite-them-right.csl
+title: Professionalisation of Airbnb:regulatory challenge or growth opportunity?
+params:
+  assess:
+    group-date: "2025-03-04"  
+execute:
+  echo: false
+  freeze: true
+format:
+  html:
+    code-copy: true
+    code-link: true
+    toc: true
+    toc-title: On this page
+    toc-depth: 2
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+  pdf:
+    include-in-header:
+      text: |
+        \addtokomafont{disposition}{\rmfamily}
+    mainfont: Spectral
+    sansfont: "Roboto Flex"
+    monofont: "Liberation Mono"
+    papersize: a4
+    geometry:
+      - top=25mm
+      - left=40mm
+      - right=30mm
+      - bottom=25mm
+      - heightrounded
+    toc: false
+    number-sections: false
+    colorlinks: true
+    highlight-style: github
+jupyter:
+  jupytext:
+    text_representation:
+      extension: .qmd
+      format_name: quarto
+      format_version: '1.0'
+      jupytext_version: 1.15.2
+  kernelspec:
+    display_name: Python 3 (ipykernel)
+    language: python
+    name: python3
+---
+
+## Declaration of Authorship {.unnumbered .unlisted}
+
+I, Cheng Shan,  pledge my honour that the work presented in this assessment is my own. Where information has been derived from other sources, I confirm that this has been indicated in the work. Where a Large Language Model such as ChatGPT has been used, I confirm that I have made its contribution to the final submission clear.
+
+Date:2025.8.29
+
+Student Numbers: 24034306
+
+Data, render PDF, code QMD library: https://github.com/shanchengnb/resit
+
+## Brief Self-Reflection
+
+| What Went Well | What Was Challenging |
+| -------------- | -------------------- |
+| A I conducted a rich, multi-dimensional analysis covering host structure, listing types, pricing, amenities, and spatial clustering. I applied text-based methods to identify high-risk listings, providing actionable insights into regulatory compliance and the dual nature of London’s Airbnb market.          | B Ensuring reproducibility across machines and platforms, especially related to file paths and dependencies in Quarto and Python.                   |
+| C I linked our data findings to real-world policy implications and built a logical argument about platform regulation using both EDA and policy comparison.             | D Managing a long and complex Quarto document while maintaining readability and proper formatting, especially during PDF generation.                   |
+
+
+
+{{< pagebreak >}}
+
+# Response to Questions
+## 0. Library Installation and Data Import
+```{python}
+#| echo: False
+!pip install pandas==2.2.3 numpy==1.26.4 matplotlib==3.9.2 seaborn==0.13.2 wordcloud==1.9.4 geopandas==1.0.1 scikit-learn==1.6.1 requests==2.32.3 tqdm==4.67.1
+```
+```{python}
+#| echo: False
+import importlib
+import subprocess
+import sys
+from pathlib import Path
+import requests
+
+# ----------------------------
+# Step 1: Ensure requirements.txt exists
+# ----------------------------
+req_file = Path("requirements.txt")
+if not req_file.exists():
+    url = "https://raw.githubusercontent.com/shanchengnb/resit/main/requirements.txt"
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        req_file.write_text(response.text, encoding="utf-8")
+        print(f"✔ requirements.txt downloaded from GitHub to {req_file.resolve()}")
+    except Exception as e:
+        print(f"⚠️ Failed to download requirements.txt: {e}")
+        print("👉 Please manually download it from https://github.com/shanchengnb/resit and place it in the project root.")
+        raise SystemExit("❌ Cannot proceed without requirements.txt")
+
+# ----------------------------
+# Step 2: Install missing libraries
+# ----------------------------
+def check_and_install_requirements(req_path):
+    """Check and install any missing packages listed in requirements.txt."""
+    if not req_path.exists():
+        raise FileNotFoundError(f"{req_path} does not exist.")
+
+    # Parse required packages
+    with req_path.open("r", encoding="utf-8") as f:
+        lines = f.readlines()
+    req_packages = [line.strip().split("==")[0] for line in lines if line.strip() and not line.startswith("#")]
+
+    # Check missing packages
+    missing = []
+    for pkg in req_packages:
+        try:
+            importlib.import_module(pkg)
+        except ImportError:
+            missing.append(pkg)
+
+    if missing:
+        print("⚠️ Installing missing packages globally:")
+        for pkg in missing:
+            print("   -", pkg)
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", str(req_path)])
+            print("\n✅ Missing packages installed successfully.")
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Failed to install packages: {e}")
+            raise
+    else:
+        print("✅ All required packages are already installed.")
+
+# Run the check
+check_and_install_requirements(req_file)
+
+# ----------------------------
+# Step 3: Show current Python executable
+# ----------------------------
+print(f"📝 Current Python executable: {sys.executable}")
+
+
+```
+
+```{python}
+#| echo: False
+from pathlib import Path
+import pandas as pd
+import ast
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import geopandas as gpd
+from wordcloud import WordCloud
+from collections import Counter
+import requests
+import io
+import json
+from tqdm import tqdm
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
+import re 
+
+# Data directory
+data_dir = Path("ChenShandata")
+data_dir.mkdir(exist_ok=True)
+print(f"📁 Data directory: {data_dir.resolve()}")
+
+# Download function
+def download_file(url, save_path, desc=""):
+    if save_path.exists():
+        print(f"✔ {desc or save_path.name} already exists, skipping download.")
+        return
+    try:
+        response = requests.get(url, timeout=30)
+        response.raise_for_status()
+        # Use write_bytes for GeoJSON, write_text for others
+        if save_path.suffix.lower() in [".geojson"]:
+            save_path.write_bytes(response.content)
+        else:
+            save_path.write_text(response.text, encoding="utf-8")
+        print(f"✔ {desc or save_path.name} downloaded to {save_path.resolve()}")
+    except Exception as e:
+        print(f"⚠️ Failed to download {desc or save_path.name}: {e}")
+        print("👉 Please manually download from GitHub and place in 'ChenShandata' folder.")
+
+# GitHub base URL
+base_url = "https://raw.githubusercontent.com/shanchengnb/resit/main/"
+
+# Required files
+files = {
+    "CSV data": {
+        "url": base_url + "final_data.csv",
+        "path": data_dir / "final_data.csv"
+    },
+    "BibTeX bibliography": {
+        "url": base_url + "bio.bib",
+        "path": data_dir / "bio.bib"
+    },
+    "CSL citation style": {
+        "url": base_url + "harvard-cite-them-right.csl",
+        "path": data_dir / "harvard-cite-them-right.csl"
+    },
+    "GeoJSON file": {
+        "url": base_url + "data/neighbourhoods.geojson",
+        "path": data_dir / "neighbourhoods.geojson"
+    }
+}
+
+# Download files if missing
+for desc, info in files.items():
+    download_file(info["url"], info["path"], desc=desc)
+
+# Load CSV
+try:
+    df = pd.read_csv(files["CSV data"]["path"], encoding="utf-8")
+    print(f"✅ DataFrame loaded successfully, shape: {df.shape}")
+except Exception as e:
+    print(f"⚠️ Failed to load CSV data: {e}")
+    df = pd.DataFrame()
+
+# Stop execution if DataFrame is empty
+if df.empty:
+    raise ValueError(
+        "❌ DataFrame is empty. Please make sure 'final_data.csv' exists in the 'ChenShandata' folder "
+        "or check the GitHub download."
+    )
+```
+
+
+
+## 1. Who collected the InsideAirbnb data?
+
+::: {.duedate}
+
+The InsideAirbnb dataset is collected and maintained by Murray Cox, a community data activist and technologist. He developed its core data pipeline, which systematically scrapes publicly available Airbnb listing data ( @cox_how_nodate ) .
+While Cox remains the principal architect of the dataset, the project has also involved contributions from collaborators such as John Morris, who helped design the website and early reports, and Tyler Higgins, who supported work on tourism systems. Overall, data collection is led by Cox, with support from a broader community of researchers and technologists.
+:::
+
+
+## 2. Why did they collect the InsideAirbnb data?
+
+::: {.duedate}
+InsideAirbnb was developed to increase transparency on the impacts of short-term rentals (STRs) on housing systems, addressing the lack of open data and selective disclosure by platforms like Airbnb ( @wachsmuth_airbnb_2018 and @cox_how_nodate ). By scraping and releasing structured, reproducible data, the project allows independent analysis of housing affordability, displacement, and regulatory compliance.
+Its core purposes include:
+1.Assessing affordability impacts: Research shows STR expansion can reduce long-term rental supply and drive up rents, as landlords prioritise higher-yield short-term listings ( @barron_effect_2021 );
+2.Detecting rule evasion: InsideAirbnb has revealed widespread violations of local rental limits, especially by multi-listing hosts ( @wachsmuth_airbnb_2018 );
+3.Supporting planning and governance: Data on STR clustering helps identify gentrification risks and speculative investment trends;
+4.Filling platform data gaps: InsideAirbnb supplies variables omitted from official Airbnb reports, such as host concentration, occupancy proxies, and spatial distribution ( @ferreri_platform_2018 ).
+Beyond practical aims, the project challenges platform power, promoting data justice by redistributing access to information for citizens, policymakers, and researchers.
+
+
+
+:::
+
+## 3. How did they collect it?
+
+::: {.duedate}
+
+InsideAirbnb collects data via automated web scraping of publicly available Airbnb listings, without using official APIs. The scraped data includes prices, host IDs, property types, amenities, availability calendars, reviews, and obfuscated locations. After scraping, the data is cleaned, deduplicated, and aggregated to produce indicators like STR density and housing availability.
+However, this method entails several limitations:
+1.Spatial obfuscation: Airbnb displaces coordinates by up to 150m, which undermines fine-grained spatial analysis ( @wachsmuth_airbnb_2018 ) ;
+2.Missing operational metrics: The dataset lacks real-time prices, confirmed bookings, and host income, limiting analysis of profitability and occupancy ( @barron_effect_2021 );
+3.Snapshot bias: Intermittent collection fails to capture market fluctuations or removed listings, which introduces reproducibility issues across dataset versions ( @ferreri_platform_2018 );
+4.Scraping barriers: CAPTCHAs and frequent HTML changes affect coverage, while some hosts may misreport attributes ( @cox_how_nodate ). Airbnb has also changed the layout of its website in ways that interfere with scraping tools, reducing the reliability of data extraction. InsideAirbnb does not clarify whether or how these changes have affected the accuracy or completeness of its own dataset ( @alsudais_incorrect_2021 ).
+InsideAirbnb notes that it does not guarantee the accuracy of scraped data , but its reproducible methodology provides a valuable tool for analyzing STR impacts beyond platform-controlled narratives.
+
+:::
+
+## 4. How does the method of collection (Q3) impact the completeness and/or accuracy of the InsideAirbnb data? How well does it represent the process it seeks to study, and what wider issues does this raise?
+
+::: {.duedate}
+
+InsideAirbnb provides a valuable public dataset, but its web scraping method introduces structural limitations affecting completeness and representativity:
+
+1.Snapshot effect and temporal gaps:
+The dataset captures only a single point in time, excluding listings added or removed between scrapes. This limits analysis of STR trends, regulatory enforcement cycles, and seasonal dynamics ( @wachsmuth_airbnb_2018 ).
+
+2.Spatial obfuscation and reduced locational precision:
+Airbnb displaces listing coordinates by up to 150 metres, which weakens neighbourhood-level, zoning, or clustering analysis—particularly in dense urban contexts ( @gutierrez_eruption_2017 ).
+
+3.Missing or unreliable fields:
+Some variables are incomplete or biased (e.g., availability_365, reviews_per_month, license, bathrooms), which constrains occupancy and regulatory analyses.
+
+4.Platform exclusion and representation bias:
+The dataset covers only Airbnb, omitting platforms like Vrbo and Booking.com. This leads to underrepresentation of STR activity in multi-platform markets( @barron_effect_2021 ) .
+
+These issues are structural and cannot be resolved by cleaning or modelling, so findings should be interpreted cautiously and triangulated with official data or qualitative research. Minor data errors, such as misattributed reviews, may also introduce false positives if unfiltered that may distort analysis if not carefully filtered( @alsudais_incorrect_2021 ) .
+:::
+
+## 5. What ethical considerations does the use of the InsideAirbnb data raise? 
+
+::: {.duedate}
+The use of InsideAirbnb data raises key ethical concerns around privacy, platform power, data justice, and the politics of representation—especially when informing public discourse or policymaking.
+
+1.Privacy and re-identification risks:
+Despite scraping only public data, hosts may be re-identified through listing metadata. Airbnb’s coordinate obfuscation helps protect location privacy, but does not eliminate this risk ( @elwood_critical_2017 ). Moreover, such exposure raises concerns about digital identity—defined as an individual’s traceable online presence—which may be exploited without consent, potentially violating privacy safeguards .
+
+2.Platform opacity and constructed narratives:
+Airbnb selectively releases data that reinforces its brand image while concealing negative impacts like displacement ( @cox_how_nodate ). This practice tends to benefit larger commercial operators who are better equipped to navigate platform rules and scale their operations, often to the detriment of smaller or casual hosts ( @minca_becoming_2021 ). InsideAirbnb challenges this imbalance by making platform data accessible, but as D’Ignazio and Klein (2020) argue, data is never neutral—its collection, curation, and framing reflect and reinforce underlying power dynamics.
+
+3.Framing and gentrification:
+STR data visualisations may unintentionally brand neighbourhoods as “Airbnb hotspots,” accelerating gentrification and speculation ( @wachsmuth_airbnb_2018 ). Researchers must critically assess how data shapes spatial imaginaries.
+
+4.Representation gaps and structural bias:
+The dataset excludes other platforms like Vrbo, and omits key variables (e.g. income, bookings, host identity), creating blind spots that cleaning cannot resolve.
+
+5.Legal ambiguity and fair use:
+Although InsideAirbnb claims “fair use,” scraping may still breach platform terms, and legal interpretations vary. Researchers should understand these risks and advocate for clearer governance standards.
+In summary, using InsideAirbnb data requires ethical vigilance to ensure transparency does not cause harm and that data use aligns with community-centered, equitable outcomes.
+
+:::
+
+## 6. With reference to the InsideAirbnb data (*i.e.* using numbers, figures, maps, and descriptive statistics), what does an analysis of Hosts and the types of properties that they list suggest about the nature of Airbnb lettings in London? 
+
+::: {.duedate}
+### 1.Core Visualization & Key Findings:MSOA-level
+```{python}
+#| echo: False
+# =========================================
+# MSOA-Level Airbnb Analysis: Whole-Home Share vs Median Price
+# =========================================
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter
+from matplotlib.lines import Line2D
+from IPython.display import display
+
+# =========================================
+# 0) Config
+# =========================================
+MIN_LISTINGS_PER_MSOA = 10   # filter small MSOAs
+TOP_K = 2                     # number of extremes to label
+SIZE_MIN, SIZE_MAX = 30, 220 # bubble size range
+ANNOTATE_DX, ANNOTATE_DY = 0.6, 2.0  # label offsets
+
+# =========================================
+# 1) MSOA column and listing ID
+# =========================================
+if "neighbourhood_cleansed" in df.columns:
+    msoa_col = "neighbourhood_cleansed"
+elif "neighbourhood" in df.columns:
+    msoa_col = "neighbourhood"
+else:
+    raise ValueError("No MSOA/quasi-neighbourhood column found.")
+
+id_col = "id" if "id" in df.columns else df.reset_index().columns[0]
+
+# =========================================
+# 2) Clean price
+# =========================================
+if not pd.api.types.is_numeric_dtype(df["price"]):
+    price_clean = (
+        df["price"].astype(str)
+        .str.replace(r"[^\d\.]", "", regex=True)
+        .replace("", np.nan)
+        .astype(float)
+    )
+else:
+    price_clean = df["price"].astype(float)
+
+df = df.assign(price_cleaned=price_clean)
+
+# =========================================
+# 3) Aggregate MSOA stats
+# =========================================
+msoa_stats = (
+    df.groupby(msoa_col)
+      .agg(
+          whole_home_share=("room_type", lambda x: (x == "Entire home/apt").mean() * 100.0),
+          median_price=("price_cleaned", "median"),
+          count=(id_col, "count")
+      )
+      .reset_index()
+)
+
+# Filter small MSOAs
+msoa_stats = msoa_stats[msoa_stats["count"] >= MIN_LISTINGS_PER_MSOA].copy()
+
+# =========================================
+# 4) Identify extremes for labels
+# =========================================
+ext_frames = [
+    msoa_stats.nlargest(TOP_K, "whole_home_share"),
+    msoa_stats.nlargest(TOP_K, "median_price"),
+    msoa_stats.nsmallest(TOP_K, "whole_home_share"),
+    msoa_stats.nsmallest(TOP_K, "median_price"),
+]
+extreme_labels = pd.concat(ext_frames, ignore_index=True).drop_duplicates(subset=[msoa_col]).reset_index(drop=True)
+msoa_stats["label"] = msoa_stats[msoa_col].where(msoa_stats[msoa_col].isin(extreme_labels[msoa_col]))
+
+# =========================================
+# 5) Define zones (Central vs Outer)
+# =========================================
+central_boroughs = ["Westminster", "Kensington and Chelsea", "City of London"]
+msoa_stats['zone'] = np.where(msoa_stats[msoa_col].isin(central_boroughs), "Central", "Outer")
+zone_colors = {"Central": "#E63946", "Outer": "#457B9D"}  # Red for central, Blue for outer
+c = msoa_stats['zone'].map(zone_colors)
+
+# =========================================
+# 6) Bubble size scaling
+# =========================================
+def scale_size(series, smin=SIZE_MIN, smax=SIZE_MAX):
+    if series.empty:
+        return series
+    vmin, vmax = series.min(), series.max()
+    if vmin == vmax:
+        return np.full_like(series, (smin + smax)/2)
+    return smin + (series - vmin) * (smax - smin) / (vmax - vmin)
+
+sizes = scale_size(msoa_stats["count"])
+
+# =========================================
+# 7) Generate extreme MSOA table 
+# =========================================
+top_wholehome = msoa_stats.nlargest(3, "whole_home_share")
+bottom_wholehome = msoa_stats.nsmallest(3, "whole_home_share")
+top_price = msoa_stats.nlargest(3, "median_price")
+bottom_price = msoa_stats.nsmallest(3, "median_price")
+
+extreme_table = pd.concat([top_wholehome, bottom_wholehome, top_price, bottom_price], ignore_index=True)
+extreme_table = extreme_table.drop_duplicates(subset=[msoa_col]).reset_index(drop=True)
+extreme_table = extreme_table.rename(columns={
+    msoa_col: "MSOA",
+    "whole_home_share": "Whole-home share (%)",
+    "median_price": "Median price (£)",
+    "count": "Listings (n)"
+})
+
+display(extreme_table[["MSOA", "Whole-home share (%)", "Median price (£)", "Listings (n)"]])
+
+# =========================================
+# 8) Plot scatter chart
+# =========================================
+fig, ax = plt.subplots(figsize=(12, 7))
+
+sc = ax.scatter(
+    x=msoa_stats["whole_home_share"],
+    y=msoa_stats["median_price"],
+    s=sizes,
+    c=c,
+    alpha=0.85,
+    edgecolor='white',
+    linewidth=0.6
+)
+
+# Linear trend line
+x, y = msoa_stats["whole_home_share"].values, msoa_stats["median_price"].values
+if len(x) >= 2:
+    z = np.polyfit(x, y, 1)
+    x_line = np.linspace(x.min(), x.max(), 200)
+    y_line = z[0] * x_line + z[1]
+    ax.plot(x_line, y_line, linewidth=2, alpha=0.7, color='gray', linestyle='--')
+
+# Annotate extremes
+for _, row in msoa_stats.dropna(subset=["label"]).iterrows():
+    ax.text(
+        row["whole_home_share"] + ANNOTATE_DX,
+        row["median_price"] + ANNOTATE_DY,
+        row["label"],
+        fontsize=10,
+        weight="bold"
+    )
+
+# Professionalized vs Casual annotation
+ax.text(85, 200, "Professionalized", color="#E63946", fontsize=12, fontweight='bold')
+ax.text(40, 60, "Casual / Peer-to-Peer", color="#457B9D", fontsize=12, fontweight='bold')
+
+# Axes, title, grid
+ax.set_title("Whole-Home Share vs Median Price by MSOA (London)", fontsize=16)
+ax.set_xlabel("Share of Whole-Home Lets (%)", fontsize=12)
+ax.set_ylabel("Median Nightly Price (£)", fontsize=12)
+ax.grid(True, linestyle='--', alpha=0.4)
+
+# Custom legend for zones
+legend_elements = [Line2D([0], [0], marker='o', color='w', label='Central',
+                          markerfacecolor="#E63946", markersize=10),
+                   Line2D([0], [0], marker='o', color='w', label='Outer',
+                          markerfacecolor="#457B9D", markersize=10)]
+ax.legend(handles=legend_elements, title="Zone")
+
+# Tick formatters
+ax.xaxis.set_major_formatter(FuncFormatter(lambda v, pos: f"{v:.0f}%"))
+ax.yaxis.set_major_formatter(FuncFormatter(lambda v, pos: f"£{v:.0f}"))
+
+# Subnote with sample size and R²
+r = np.corrcoef(x, y)[0,1]
+r2 = r**2
+note = f"n(MSOA)={msoa_stats.shape[0]}   Linear trend R²={r2:.2f} (r={r:.2f})"
+ax.text(0.01, 0.02, note, transform=ax.transAxes, fontsize=10, alpha=0.85)
+
+plt.tight_layout()
+plt.show()
+
+```
+
+The scatterplot of MSOA-level data reveals two Airbnb market types in London. Entire-home share is positively associated with median nightly price, reflecting a dual structure. Central boroughs such as Westminster (82.8%) and Kensington & Chelsea (86.7%) combine high entire-home shares with the city’s highest prices (£188–196), pointing to concentrated professional activity. The City of London also shows a very high share (91.6%) but with relatively few listings (442), suggesting a small yet highly commercialized submarket. By contrast, outer boroughs like Harrow, Hillingdon, and Bexley have lower shares (43–46%) and lower prices (£64–68), consistent with casual, peer-to-peer hosting. This spatial and market segmentation illustrates a shift away from Airbnb’s original ethos toward more conventional accommodation practices and supports the view that two distinct markets now operate on Airbnb in London.
+
+### 2.Market Segmentation: Listing Types, Pricing, and Host Structures
+```{python}
+#| echo: False
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Set a unified main color
+main_color = "#4C9F70"
+
+# ---------- Data Cleaning ----------
+df["price_cleaned"] = df["price"].replace('[\$,]', '', regex=True).astype(float)
+df_small = df[df["price_cleaned"] < 500]  # Remove outliers in price
+
+# Host information
+df["host_id"] = df["host_id"].astype(str)
+df["is_superhost"] = df["host_is_superhost"] == "t"
+df["multi_host"] = df["calculated_host_listings_count"] > 1
+
+# Host bin
+df["host_bin"] = pd.cut(
+    df["calculated_host_listings_count"],
+    bins=[0, 1, 2, 5, 10, 20, 50, 100, np.inf],
+    labels=["1", "2", "3–5", "6–10", "11–20", "21–50", "51–100", "100+"]
+)
+
+# Superhost group statistics
+superhost_group = df.groupby("multi_host")["is_superhost"].value_counts(normalize=True).unstack().fillna(0)
+
+# ---------- Plotting ----------
+fig, axs = plt.subplots(2, 2, figsize=(16, 12))
+plt.subplots_adjust(wspace=0.3, hspace=0.35)
+
+# (1) Price distribution
+sns.histplot(df_small["price_cleaned"], bins=40, kde=True, ax=axs[0, 0], color=main_color)
+axs[0, 0].set_title("Price Distribution (< £500)")
+axs[0, 0].set_xlabel("Price (£)")
+axs[0, 0].set_ylabel("Frequency")
+
+# (2) Boxplot of price by room type
+sns.boxplot(
+    data=df_small,
+    x="room_type",
+    y="price_cleaned",
+    hue="room_type",  # Avoid FutureWarning
+    palette=[main_color]*df["room_type"].nunique(),
+    legend=False,
+    ax=axs[0, 1]
+)
+axs[0, 1].set_title("Price by Room Type")
+axs[0, 1].set_xlabel("Room Type")
+axs[0, 1].set_ylabel("Price (£)")
+
+# (3) Distribution of listings per host
+df["host_bin"].value_counts().sort_index().plot(
+    kind="bar", logy=True, color=main_color, edgecolor="black", ax=axs[1, 0]
+)
+axs[1, 0].set_title("Hosts by Listings Owned (Log Scale)")
+axs[1, 0].set_xlabel("Listings Owned per Host")
+axs[1, 0].set_ylabel("Number of Hosts (log)")
+
+# (4) Superhost ratio
+superhost_group.plot(
+    kind="bar",
+    stacked=True,
+    color=["#D0E6D5", main_color],
+    edgecolor="black",
+    ax=axs[1, 1],
+    legend=False
+)
+axs[1, 1].set_title("Superhost Ratio: Multi vs Single-Listing")
+axs[1, 1].set_ylabel("Proportion")
+axs[1, 1].set_xlabel("Host Type")
+axs[1, 1].set_xticks([0, 1])
+axs[1, 1].set_xticklabels(["Single-listing", "Multi-listing"], rotation=0)
+axs[1, 1].grid(axis="y")
+
+# Add a unified title
+fig.suptitle("Airbnb Market Segmentation in London: Listings, Prices, and Hosts", fontsize=18)
+plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+plt.show()
+
+```
+
+Supplementary analyses reveal two distinct Airbnb market segments in London. On the listing side, entire homes (avg. £174.92) and hotel-style units (avg. £154.86) dominate the high-priced, professionalized market, while private (£70.54) and shared rooms (£41.14) remain concentrated in lower-priced, peer-to-peer settings. On the host side, 24% manage multiple listings (6% with five or more), primarily in central, whole-home areas, while single-listing hosts dominate casual markets. Multi-listing hosts are slightly more likely to be Superhosts (25.4% vs. 20.8%), but small-scale hosts achieve marginally higher review scores, showing that personalized hosting remains competitive. Together, these patterns confirm the coexistence of commercialized, high-end operations and traditional home-sharing, reinforcing the dual structure of London’s Airbnb market.
+
+
+### 3. Summary & Policy Outlook
+London’s Airbnb market shows a dual structure: a commercial, high-density core in boroughs like Westminster and Kensington & Chelsea, dominated by multi-listing hosts offering entire homes at premium prices, and a dispersed outer zone of lower-cost shared accommodations run by small-scale hosts. This spatial and market segmentation highlights how professional operators and casual home-sharers coexist in London. 
+
+From a policy perspective, differentiated regulation by borough, host-based classification, and data-driven monitoring are needed to balance tourism growth with housing pressures. The concentration of professionalised listings in central boroughs justifies targeted measures, such as enforcing the 90-day rule, which will be examined in Q7
+
+
+
+:::
+
+## 7. Drawing on your previous answers, and supporting your response with evidence (*e.g.* figures, maps, EDA/ESDA, and simple statistical analysis/models drawing on experience from, e.g., CASA0007), how *could* the InsideAirbnb data set be used to inform the regulation of Short-Term Lets (STL) in London? 
+
+::: {.duedate}
+### 1. Introduction: Policy Goals and Data Source
+In Q6, we identified a clear dual market on Airbnb in London: traditional short-term rentals operated by individual hosts, and semi-professional or commercial listings managed by multi-unit hosts, often offering whole-home rentals. This market segmentation is also reflected spatially, with commercial-style listings concentrated in central boroughs. The dual-market structure identified in Q6 suggests that regulatory efforts, such as enforcing the 90-day cap, should prioritise high-density, professionalised listings rather than casual, individual hosts.
+
+The analysis draws on the InsideAirbnb dataset, which is public, granular, and regularly updated, making it a reliable source for monitoring and evaluating short-term lets.
+
+Policy objectives:
+
+1.Identify potential rule breaches in short-term rentals;
+
+2.Target enforcement toward high-risk hosts and locations;
+
+3.Support evidence-based regulation through transparent, data-driven insights.
+
+### 2.Estimating 90-Day Rule Violations 
+```{python}
+#| echo: False
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# 1. Data cleaning
+df["reviews_per_month"] = pd.to_numeric(df["reviews_per_month"], errors="coerce")
+df["calculated_host_listings_count"] = pd.to_numeric(df["calculated_host_listings_count"], errors="coerce")
+
+# 2. Rough estimation of nights booked per year
+df["estimated_nights_booked"] = df["reviews_per_month"] * 30
+
+# 3. Flag potential violations
+df["possible_violation"] = df["estimated_nights_booked"] > 90
+
+# 4. Summary of violation status
+violation_summary = df["possible_violation"].value_counts().rename({True: "Likely Violation", False: "Compliant"})
+
+# 5. Create a 1x3 subplot layout
+fig, axs = plt.subplots(1, 3, figsize=(18, 5))
+plt.subplots_adjust(wspace=0.3)
+
+# --- Plot 1: Distribution of estimated booked nights ---
+sns.histplot(df["estimated_nights_booked"].dropna(), bins=40, kde=True, color="#4C9F70", ax=axs[0])
+axs[0].axvline(90, color="red", linestyle="--", label="90-Day Legal Limit")
+axs[0].set_title("Estimated Nights Booked per Year")
+axs[0].set_xlabel("Estimated Nights Booked")
+axs[0].set_ylabel("Number of Listings")
+axs[0].legend()
+
+# --- Plot 2: Count of likely violating listings ---
+sns.barplot(
+    x=violation_summary.index,
+    y=violation_summary.values,
+    hue=violation_summary.index,
+    palette="Set2",
+    ax=axs[1],
+    legend=False  # Suppress duplicate legend
+)
+axs[1].set_title("Listings Estimated to Violate 90-Day Rule")
+axs[1].set_ylabel("Number of Listings")
+axs[1].set_xlabel("Violation Status")
+
+# --- Plot 3: Host size vs. likelihood of violation ---
+filtered_df = df[df["calculated_host_listings_count"] < 20]
+sns.boxplot(
+    data=filtered_df,
+    x="possible_violation",
+    y="calculated_host_listings_count",
+    hue="possible_violation",
+    palette=["#D0E6D5", "#4C9F70"],
+    legend=False,
+    ax=axs[2]
+)
+axs[2].set_title("Do Multi-Listing Hosts Tend to Violate?")
+axs[2].set_xlabel("Potential Violation")
+axs[2].set_ylabel("Listings per Host")
+
+# Final layout and display
+fig.suptitle("Analysis of Potential Violations in Airbnb Listings", fontsize=15)
+plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+plt.show()
+
+```
+
+Enforcing London’s 90-day limit on whole-home short-term rentals faces challenges, mainly due to limited transparency and the difficulty of identifying multi-listing hosts. Based on annual booked nights estimated from review counts, about 7.4% of listings are likely to exceed the limit, including both single-listing and multi-listing hosts. Consistent with the market segmentation identified in Q6, multi-listing hosts and entire-home rentals constitute the high-risk, professionalized segment. This suggests that regulation should focus on high-risk hosts, provide clear guidance for occasional hosts, and use structured, publicly available data to support evidence-based monitoring and policy-making.
+
+### 3. Text-Based Detection of ‘Disguised’ Regulatory Violations
+
+```{python}
+#| echo: False
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# ---------- 1. Colors ----------
+main_color = "#4C9F70"  # Non-hotel listings
+hotel_color = "#FFA07A"  # Hotel listings (reference only)
+
+# ---------- 2. Define high-risk keywords ----------
+risky_keywords = [
+    "serviced", "monthly", "contractor", "long term",
+    "short stay", "luxury", "hotel", "corporate", "relocation"
+]
+
+# Matching function for non-hotel listings (includes 'hotel')
+def has_risky_terms(text):
+    text = str(text).lower()
+    return any(kw in text for kw in risky_keywords)
+
+# Matching function for hotel listings (exclude 'hotel', just for reference)
+hotel_keywords = [kw for kw in risky_keywords if kw != "hotel"]
+def has_risky_terms_hotel(text):
+    text = str(text).lower()
+    return any(kw in text for kw in hotel_keywords)
+
+# ---------- 3. Separate hotel and non-hotel listings ----------
+df_non_hotel = df[df["room_type"] != "Hotel room"].copy()
+df_hotel = df[df["room_type"] == "Hotel room"].copy()
+
+# ---------- 4. Flag high-risk keywords in non-hotel listings ----------
+df_non_hotel.loc[:, "has_risky_terms"] = df_non_hotel["description"].fillna("").apply(has_risky_terms)
+
+# ---------- 5. Calculate proportion of high-risk listings by room type ----------
+risky_by_room = df_non_hotel.groupby("room_type")["has_risky_terms"].mean().sort_values(ascending=False)
+
+# ---------- 6. Visualization ----------
+plt.figure(figsize=(8, 5))
+sns.barplot(
+    x=risky_by_room.index,
+    y=risky_by_room.values,
+    color=main_color
+)
+plt.title("Share of Non-Hotel Listings with High-Risk Keywords by Room Type")
+plt.ylabel("Proportion of Listings with Risky Terms")
+plt.xlabel("Room Type")
+plt.xticks(rotation=30)
+plt.tight_layout()
+plt.show()
+
+```
+
+Text analysis reveals that approximately 11.1% of entire-home/apartment listings, 7.1% of private rooms, and 3.5% of shared rooms contain high-risk keywords such as “serviced,” “monthly,” or “luxury.” Hotel listings, included here for reference, show a higher share (17.7%) but are generally licensed and exempt from the 90-day limit. These findings align with the dual-market structure identified in Q6: traditional short-term rentals are mainly operated by individual hosts, whereas semi-professional, multi-unit hosts offering entire homes operate in a regulatory gray area. Consequently, monitoring and compliance efforts should prioritize non-hotel, semi-professional listings, using text-based methods such as natural language processing to complement existing listing-type classification.
+
+### 4.Spatial Patterns: Where Are Violations Happening?
+
+```{python}
+#| echo: False
+
+import geopandas as gpd
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
+from pathlib import Path
+import warnings
+warnings.filterwarnings("ignore", category=RuntimeWarning, module="pyogrio.core")
+
+# ---------- Main color ----------
+main_color = "#4C9F70"  # Soft blue-green
+
+# ---------- Construct GeoDataFrame for listings ----------
+df["geometry"] = gpd.points_from_xy(df["longitude"], df["latitude"])
+gdf = gpd.GeoDataFrame(df, geometry="geometry", crs="EPSG:4326")
+
+# ---------- Load London Borough boundaries ----------
+geojson_path = Path("ChenShandata") / "neighbourhoods.geojson"
+boroughs = gpd.read_file(geojson_path).to_crs("EPSG:4326")
+
+# ---------- Filter potential violation listings ----------
+# Combine estimated 90-day violations and high-risk keywords
+gdf["possible_violation"] = gdf.get("possible_violation", False) | gdf.get("has_risky_terms", False)
+gdf_violation = gdf[gdf["possible_violation"]].copy()
+
+# ---------- Spatial join with boroughs ----------
+gdf_joined = gpd.sjoin(gdf_violation, boroughs, how="left", predicate="within")
+
+# ---------- Count violations per borough ----------
+violation_counts = gdf_joined.groupby("neighbourhood").size().reset_index(name="violation_count")
+
+# ---------- Merge counts back to boroughs GeoDataFrame ----------
+boroughs_violations = boroughs.merge(violation_counts, on="neighbourhood", how="left")
+boroughs_violations["violation_count"] = boroughs_violations["violation_count"].fillna(0)
+
+# ---------- Identify top 5 boroughs ----------
+top5_boroughs = boroughs_violations.nlargest(5, "violation_count")
+
+# ---------- Create a gradient colormap ----------
+cmap = LinearSegmentedColormap.from_list("main_gradient", ["#e0f0e8", main_color])
+
+# ---------- Plot spatial distribution ----------
+fig, ax = plt.subplots(figsize=(12, 8))
+boroughs_violations.plot(
+    column="violation_count",
+    cmap=cmap,
+    linewidth=0.8,
+    ax=ax,
+    edgecolor="0.8",
+    legend=True
+)
+
+# Highlight top 5 boroughs with red borders
+top5_boroughs.boundary.plot(ax=ax, color="red", linewidth=2, label="Top 5 Violations")
+
+plt.title("Top 5 Boroughs with Highest Potential Violations", fontsize=14)
+plt.axis("off")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+```
+
+Spatial analysis shows that Airbnb listings potentially exceeding the 90-day limit or containing high-risk keywords are mainly concentrated in central London, areas identified in Q6 as high-priced, professionalized whole-home markets. The top five boroughs—Westminster (788), Camden (506), Tower Hamlets (344), Kensington & Chelsea (338), and Lambeth (332)—account for the majority of these potential violations. In contrast, outer boroughs, which host lower-priced, single-room peer-to-peer listings, show far fewer potential breaches. This spatial clustering indicates that enforcement should be prioritized in high-density, professionalized areas to improve monitoring efficiency and policy effectiveness.
+
+### 5.Language Use in Suspect Listings: Brand and Violation Overlap
+
+```{python}
+#| echo: False
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
+
+# ---------- 1. Define high-risk keywords ----------
+risky_keywords = [
+    "serviced", "monthly", "contractor", "long term",
+    "short stay", "luxury", "hotel", "corporate", "relocation"
+]
+
+# ---------- 2. Flag high-risk keywords for all listings ----------
+df["has_risky_terms"] = df["description"].fillna("").apply(
+    lambda x: any(kw in str(x).lower() for kw in risky_keywords)
+)
+
+# ---------- 3. Clean description text ----------
+df["description_clean"] = df["description"].astype(str)
+df["description_clean"] = df["description_clean"].str.replace(r"<[^>]+>", " ", regex=True)  # remove HTML
+df["description_clean"] = df["description_clean"].str.replace(r"\s+", " ", regex=True).str.strip()  # clean spaces
+
+# ---------- 4. Select descriptions from potentially violating listings ----------
+# Include either 90-day possible violations or listings with risky keywords
+violation_texts = df[df["possible_violation"] | df["has_risky_terms"]]["description_clean"].dropna()
+
+# ---------- 5. Build TF-IDF model ----------
+vectorizer = TfidfVectorizer(
+    stop_words="english",
+    max_features=50,
+    token_pattern=r"(?u)\b[a-zA-Z]{2,}\b"  # match words with length >=2
+)
+X = vectorizer.fit_transform(violation_texts)
+
+# ---------- 6. Build frequency dictionary ----------
+top_words = vectorizer.get_feature_names_out()
+tfidf_sum = X.sum(axis=0).A1
+word_freq = dict(zip(top_words, tfidf_sum))
+
+# ---------- 7. Generate word cloud ----------
+wordcloud = WordCloud(width=800, height=400, background_color="white").generate_from_frequencies(word_freq)
+
+plt.figure(figsize=(12, 6))
+plt.imshow(wordcloud, interpolation="bilinear")
+plt.axis("off")
+plt.title("Top TF-IDF Words in Potentially Violating Listings")
+plt.show()
+
+```
+
+Textual analysis of potentially non-compliant listings using TF-IDF reveals that high-risk keywords such as “private,” “spacious,” “walk,” and “luxury” are concentrated in specific clusters. These listings, often highlighting central locations and convenience, spatially coincide with the central London hotspots identified earlier. This confirms that combining text mining with geographic information helps efficiently identify high-risk, semi-professional or branded listings, supporting targeted monitoring and enforcement.
+
+### 6. Data-Driven Regulation and Policy Implications
+
+InsideAirbnb data reveals a dual structure in London’s short-term rental market: individual hosts and semi-commercial operators. The identification of semi-professional, multi-listing hosts in Q6 suggests that regulatory focus should target these operators rather than casual hosts. The current 90-day cap for whole-home rentals primarily affects individuals, while most hotel listings are legally registered and exempt, and are included here for reference only. This indicates that policy efforts should concentrate on semi-commercial listings with high booking volumes or keywords such as “serviced,” “monthly,” or “luxury.”
+
+To assess compliance, this study estimated occupancy using review counts (monthly reviews × 30) and flagged potentially high-risk listings through text analysis (NLP). The results indicate that around 7.4% of listings may exceed the 90-day limit, and about 9% contain high-risk keywords, mainly concentrated in whole-home and hotel listings, with potential violations spatially clustered in central boroughs such as Westminster, Camden, and Kensington & Chelsea. Since review counts and the 90-day threshold are only approximate indicators, flagged listings are not necessarily non-compliant, but combining this with the market and spatial segmentation identified in Question 6 supports targeted enforcement.
+
+International experience offers valuable lessons: Berlin’s ban on unregistered whole-home rentals reduced non-compliance, while New York’s Local Law 18 strengthened monitoring through mandatory registration. London could adopt a hybrid approach, combining registration and rental limits, focusing on high-density, semi-commercial areas while offering clear guidance for casual hosts.
+
+Policy recommendations include prioritizing high-risk listings through combined occupancy and text analysis, integrating a registration system to improve transparency, focusing enforcement in central hotspots, and using automated monitoring to identify semi-commercial operators, reducing reliance on manual inspections.
+
+Finally, these findings rely on publicly scraped InsideAirbnb data and proxy-based occupancy estimates. While they provide transparency and evidence for regulatory planning, limitations in data coverage, coordinate obfuscation, and proxy assumptions mean results are indicative rather than definitive, and should be considered alongside the ethical and privacy considerations discussed in Q1–Q5.
+
+:::
+
+
+
+
+## References

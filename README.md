@@ -1,3 +1,12 @@
+
+## ⚠️ Critical Note: QMD File Available for Direct Execution
+
+If library installation fails: The final version of my QMD file is available on GitHub: 24034306ChengShan.qmd
+. You can use this file to run the analysis directly without needing to re-install packages manually.
+
+
+
+
 ## Navigate to the folder where the .qmd file is located.
 For example, in Windows PowerShell:
 
